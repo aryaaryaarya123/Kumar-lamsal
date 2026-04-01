@@ -4,7 +4,7 @@ import { ShareCard } from './components/ShareCard';
 import { PORTFOLIO, MOCK_PRICES } from './lib/data';
 
 export default function App() {
-  const [prices, setPrices] = useState<Record<string, { price: number; change: number }>>({});
+  const [prices, setPrices] = useState<Record<string, { price: number; change: number; history?: {date: string, price: number}[] }>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -20,7 +20,7 @@ export default function App() {
       }
     }
 
-    const newPrices: Record<string, { price: number; change: number }> = {};
+    const newPrices: Record<string, { price: number; change: number; history?: {date: string, price: number}[] }> = {};
     const symbolsArray = Array.from(symbols);
 
     try {

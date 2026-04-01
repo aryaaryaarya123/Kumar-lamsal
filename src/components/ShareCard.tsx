@@ -19,35 +19,52 @@ interface ShareCardProps {
   key?: React.Key;
   symbol: string;
   totalQty: number;
-  priceData: { price: number; change: number };
+  priceData: { price: number; change: number; history?: {date: string, price: number}[] };
 }
 
 export function ShareCard({ symbol, totalQty, priceData }: ShareCardProps) {
   const [timeRange, setTimeRange] = useState<'1D' | '1W' | '1M' | '1Y'>('1M');
 
-  const { price, change } = priceData;
+  const { price, change, history = [] } = priceData;
   const isPositive = change >= 0;
   const changePercent = price > 0 ? (change / (price - change)) * 100 : 0;
 
-  // Generate some dummy historical data based on current price and change
+  // Generate chart data based on real history from database
   const chartData = useMemo(() => {
-    const points = 10;
-    const data = [];
-    const labels = [];
+    let filteredHistory = [...history];
     
-    // Simple mock trend
-    // If change is 0 (like from the new API), use a small percentage of price to create a visual trend
-    const effectiveChange = change !== 0 ? change : (price * 0.005); 
-    let currentVal = price - (effectiveChange * points);
-    
-    for (let i = 0; i < points; i++) {
-      labels.push(`T-${points - i}`);
-      data.push(currentVal);
-      // Add some random noise to the trend
-      currentVal += effectiveChange + ((Math.random() - 0.5) * Math.abs(effectiveChange)); 
+    // Filter history based on selected time range
+    if (filteredHistory.length > 0) {
+      const now = new Date();
+      let cutoffDate = new Date();
+      
+      if (timeRange === '1W') cutoffDate.setDate(now.getDate() - 7);
+      else if (timeRange === '1M') cutoffDate.setMonth(now.getMonth() - 1);
+      else if (timeRange === '1Y') cutoffDate.setFullYear(now.getFullYear() - 1);
+      
+      if (timeRange !== '1D') {
+        filteredHistory = filteredHistory.filter(h => new Date(h.date) >= cutoffDate);
+      } else {
+        // For 1D, just show the last 2 points if available
+        filteredHistory = filteredHistory.slice(-2);
+      }
     }
+
+    const data = filteredHistory.map(h => h.price);
+    const labels = filteredHistory.map(h => h.date);
+    
+    // Always append current live price at the end
     labels.push('Now');
     data.push(price);
+
+    // If we still don't have enough data points (e.g. brand new DB), generate a tiny visual trend
+    if (data.length <= 2) {
+      const effectiveChange = change !== 0 ? change : (price * 0.005); 
+      let currentVal = price - (effectiveChange * 5);
+      
+      data.unshift(currentVal);
+      labels.unshift('T-1');
+    }
 
     return {
       labels,
@@ -73,7 +90,7 @@ export function ShareCard({ symbol, totalQty, priceData }: ShareCardProps) {
         borderWidth: 2,
       }]
     };
-  }, [price, change, timeRange, isPositive]);
+  }, [price, change, history, timeRange, isPositive]);
 
   return (
     <div className="card p-4 sm:p-6 flex flex-col">

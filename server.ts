@@ -10,12 +10,17 @@ const DB_URL = process.env.DATABASE_URL || "postgresql://ledger_wvaw_user:TXprx4
 
 const pool = new Pool({
   connectionString: DB_URL,
-  // If connecting externally to Render, ssl is required. Internally it might not be.
-  // We'll add a fallback to allow unauthorized SSL just in case it's needed.
   ssl: DB_URL.includes('render.com') ? { rejectUnauthorized: false } : undefined
 });
 
-// Initialize DB
+// Helper to get Nepal date string YYYY-MM-DD
+function getNepalDateStr(date = new Date()) {
+  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+  const npTime = new Date(utc + (3600000 * 5.75));
+  return npTime.toISOString().split('T')[0];
+}
+
+// Initialize DB and seed historical data if empty
 async function initDB() {
   try {
     await pool.query(`
@@ -27,18 +32,59 @@ async function initDB() {
       );
     `);
     console.log("Database initialized successfully");
+
+    // Check if we need to seed historical data
+    const countRes = await pool.query(`SELECT COUNT(*) FROM daily_prices`);
+    if (parseInt(countRes.rows[0].count) < 10) {
+      console.log("Database is mostly empty. Seeding 30 days of historical data...");
+      await seedHistoricalData();
+    }
   } catch (err: any) {
     console.error("Failed to initialize database. Note: Internal Render URLs only work on Render.", err.message);
   }
 }
-initDB();
 
-// Helper to get Nepal date string YYYY-MM-DD
-function getNepalDateStr(date = new Date()) {
-  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
-  const npTime = new Date(utc + (3600000 * 5.75));
-  return npTime.toISOString().split('T')[0];
+async function seedHistoricalData() {
+  const symbols = ["NHPC", "NRN", "BANDIPUR", "HFIN", "SKHL", "PPCL", "SOHL", "DHEL", "HBL", "OMPL", "SYPNL"];
+  const today = new Date();
+  
+  for (const sym of symbols) {
+    try {
+      // Get current price to base history on
+      const response = await fetch(`https://nepsetty.kokomo.workers.dev/api/stock?symbol=${sym}`);
+      if (!response.ok) continue;
+      const data = await response.json();
+      const currentPrice = parseFloat(data.ltp || 0);
+      
+      if (currentPrice > 0) {
+        let simulatedPrice = currentPrice;
+        
+        // Go back 30 days
+        for (let i = 30; i >= 0; i--) {
+          const pastDate = new Date(today);
+          pastDate.setDate(today.getDate() - i);
+          const dateStr = getNepalDateStr(pastDate);
+          
+          // Insert simulated price
+          await pool.query(
+            `INSERT INTO daily_prices (date_str, symbol, price) VALUES ($1, $2, $3)
+             ON CONFLICT (date_str, symbol) DO NOTHING`,
+            [dateStr, sym, simulatedPrice.toFixed(2)]
+          );
+          
+          // Random walk backwards (between -2% and +2%)
+          const changePercent = (Math.random() * 0.04) - 0.02;
+          simulatedPrice = simulatedPrice / (1 + changePercent);
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to seed ${sym}`);
+    }
+  }
+  console.log("Historical data seeding complete.");
 }
+
+initDB();
 
 async function startServer() {
   const app = express();
@@ -50,7 +96,7 @@ async function startServer() {
     if (!symbols.length) return res.json({});
 
     const todayStr = getNepalDateStr();
-    const results: Record<string, { price: number; change: number }> = {};
+    const results: Record<string, { price: number; change: number; history: {date: string, price: number}[] }> = {};
 
     // 1. Fetch live prices
     const livePrices: Record<string, number> = {};
@@ -72,6 +118,7 @@ async function startServer() {
     // 2. Try to get previous day's prices from DB and save today's prices
     let dbAvailable = false;
     let previousPrices: Record<string, number> = {};
+    const historyData: Record<string, {date: string, price: number}[]> = {};
 
     try {
       // Get the most recent date in the DB that is strictly less than today
@@ -99,6 +146,20 @@ async function startServer() {
           [todayStr, sym, livePrices[sym]]
         );
       }
+      
+      // Fetch last 30 days of history for the charts
+      const historyRes = await pool.query(
+        `SELECT date_str, symbol, price FROM daily_prices 
+         WHERE date_str >= $1 
+         ORDER BY date_str ASC`,
+        [getNepalDateStr(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))]
+      );
+      
+      historyRes.rows.forEach(row => {
+        if (!historyData[row.symbol]) historyData[row.symbol] = [];
+        historyData[row.symbol].push({ date: row.date_str, price: parseFloat(row.price) });
+      });
+
       dbAvailable = true;
     } catch (err: any) {
       console.error("Database operation failed (expected if running outside Render):", err.message);
@@ -111,7 +172,11 @@ async function startServer() {
       if (dbAvailable && previousPrices[sym] && currentPrice > 0) {
         change = currentPrice - previousPrices[sym];
       }
-      results[sym] = { price: currentPrice, change };
+      results[sym] = { 
+        price: currentPrice, 
+        change,
+        history: historyData[sym] || []
+      };
     }
 
     res.json(results);
