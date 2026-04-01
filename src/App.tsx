@@ -129,18 +129,18 @@ export default function App() {
   }, [prices]);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900">Lamsal Family Portfolio</h1>
-          <p className="text-lg text-slate-500 mt-2">Consolidated Report of Share Distributions</p>
+        <header className="mb-6 sm:mb-8">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">Lamsal Family Portfolio</h1>
+          <p className="text-base sm:text-lg text-slate-500 mt-2">Consolidated Report of Share Distributions</p>
         </header>
 
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-8">
           <button 
             onClick={fetchData} 
             disabled={loading}
-            className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 shadow-sm"
+            className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 shadow-sm"
           >
             {loading ? 'Refreshing...' : 'Refresh Now'}
           </button>
@@ -150,34 +150,34 @@ export default function App() {
         </div>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-8 font-medium text-center border border-red-200">
+          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-8 font-medium text-center border border-red-200 text-sm sm:text-base">
             ⚠️ Could not load live data. Market may be closed or API temporary issue. Using cached/demo data.
           </div>
         )}
 
         {/* Overall Summary Section */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-8">
-          <h2 className="text-xl font-bold text-slate-900 mb-4">Overall Portfolio Summary</h2>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm mb-8">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-4">Overall Portfolio Summary</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-              <p className="text-sm text-slate-500 font-medium mb-1">Total Shares</p>
-              <p className="text-2xl font-bold text-slate-900">{summary.totalShares}</p>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mb-1">Total Shares</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900">{summary.totalShares}</p>
             </div>
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-              <p className="text-sm text-slate-500 font-medium mb-1">Total Investment</p>
-              <p className="text-2xl font-bold text-slate-900">NPR {summary.totalInvestment.toLocaleString('en-NP')}</p>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mb-1">Total Investment</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900">NPR {summary.totalInvestment.toLocaleString('en-NP')}</p>
             </div>
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-              <p className="text-sm text-slate-500 font-medium mb-1">Value Yesterday</p>
-              <p className="text-2xl font-bold text-slate-900">NPR {summary.totalValueYesterday.toLocaleString('en-NP', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mb-1">Value Yesterday</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900">NPR {summary.totalValueYesterday.toLocaleString('en-NP', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-              <p className="text-sm text-slate-500 font-medium mb-1">Value Today</p>
-              <p className="text-2xl font-bold text-slate-900">NPR {summary.totalValueToday.toLocaleString('en-NP', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mb-1">Value Today</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900">NPR {summary.totalValueToday.toLocaleString('en-NP', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div className={`p-4 rounded-lg border ${summary.isPositiveToday ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
-              <p className={`text-sm font-medium mb-1 ${summary.isPositiveToday ? 'text-emerald-700' : 'text-rose-700'}`}>Today's Gain/Loss</p>
-              <p className={`text-2xl font-bold ${summary.isPositiveToday ? 'text-emerald-600' : 'text-rose-600'}`}>
+              <p className={`text-xs sm:text-sm font-medium mb-1 ${summary.isPositiveToday ? 'text-emerald-700' : 'text-rose-700'}`}>Today's Gain/Loss</p>
+              <p className={`text-xl sm:text-2xl font-bold ${summary.isPositiveToday ? 'text-emerald-600' : 'text-rose-600'}`}>
                 {summary.isPositiveToday ? '+' : ''}NPR {summary.gainLossToday.toLocaleString('en-NP', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
@@ -186,11 +186,11 @@ export default function App() {
 
         <FamilyMemberSummary prices={prices} />
 
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Share Performance</h2>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-slate-900">Share Performance</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {aggregatedShares.map(([sym, totalQty]) => (
             <ShareCard 
               key={sym} 
@@ -201,10 +201,10 @@ export default function App() {
           ))}
         </div>
 
-        <div className="mt-12 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h2 className="text-xl font-bold text-slate-900 mb-4">IPO / Corporate Actions</h2>
-          <p className="text-slate-600">
-            <strong>Note:</strong> Free price APIs do not have IPO data.<br />
+        <div className="mt-8 sm:mt-12 bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-3 sm:mb-4">IPO / Corporate Actions</h2>
+          <p className="text-sm sm:text-base text-slate-600">
+            <strong>Note:</strong> Free price APIs do not have IPO data.<br className="hidden sm:block" />
             Check official notices here:{' '}
             <a href="https://newweb.nepalstock.com/notices" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-medium">NEPSE Notices</a>
             {' '}or{' '}
@@ -212,7 +212,7 @@ export default function App() {
           </p>
         </div>
 
-        <footer className="mt-12 pt-8 border-t border-slate-200 text-center text-slate-500 font-medium text-sm">
+        <footer className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-slate-200 text-center text-slate-500 font-medium text-xs sm:text-sm">
           Grand total across all portfolios: 165 shares
         </footer>
       </div>

@@ -76,26 +76,26 @@ export function ShareCard({ symbol, totalQty, priceData }: ShareCardProps) {
   }, [price, change, timeRange, isPositive]);
 
   return (
-    <div className="card p-6 flex flex-col">
-      <div className="flex justify-between items-start mb-6">
+    <div className="card p-4 sm:p-6 flex flex-col">
+      <div className="flex justify-between items-start mb-4 sm:mb-6">
         <div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-xs">
               {symbol.substring(0, 2)}
             </div>
-            <h2 className="text-xl font-bold text-slate-900">{symbol}</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900">{symbol}</h2>
           </div>
-          <p className="text-sm text-slate-500 font-medium mt-2">Family Shares: <span className="text-slate-900">{totalQty}</span></p>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-2">Family Shares: <span className="text-slate-900">{totalQty}</span></p>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-slate-900">{formatCurrency(price)}</div>
-          <div className={`text-sm font-medium mt-1 flex items-center justify-end gap-1 ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+          <div className="text-xl sm:text-2xl font-bold text-slate-900">{formatCurrency(price)}</div>
+          <div className={`text-xs sm:text-sm font-medium mt-1 flex items-center justify-end gap-1 ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
             {isPositive ? (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 sm:w-4 sm:h-4">
                 <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
               </svg>
             ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 sm:w-4 sm:h-4">
                 <path fillRule="evenodd" d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z" clipRule="evenodd" />
               </svg>
             )}
@@ -104,7 +104,7 @@ export function ShareCard({ symbol, totalQty, priceData }: ShareCardProps) {
         </div>
       </div>
 
-      <div className="h-32 mb-6 mt-auto">
+      <div className="h-24 sm:h-32 mb-4 sm:mb-6 mt-auto">
         <Line 
           data={chartData} 
           options={{ 

@@ -2,7 +2,7 @@ export const PORTFOLIO = {
     "Arya Lamsal":  { NHPC: 10, NRN: 15 },
     "Aryan Lamsal": { BANDIPUR: 10, HFIN: 10, SKHL: 10, NRN: 15 },
     "Yashoda":      { BANDIPUR: 10, PPCL: 20 },
-    "Agaman":       { SOLU: 10, NRN: 15 },
+    "Agaman":       { SOHL: 10, NRN: 15 },
     "Kumar":        { DHEL: 10, HBL: 10, OMPL: 10, SYPNL: 10 }
 };
 
@@ -16,7 +16,7 @@ export const MOCK_PRICES: Record<string, { price: number; change: number }> = {
     HFIN: { price: 315.00, change: -2.0 },
     SKHL: { price: 290.00, change: 8.5 },
     PPCL: { price: 410.50, change: 15.0 },
-    SOLU: { price: 380.00, change: -5.0 },
+    SOHL: { price: 380.00, change: -5.0 },
     DHEL: { price: 210.00, change: 2.0 },
     HBL: { price: 245.00, change: 1.5 },
     OMPL: { price: 510.00, change: -8.0 },
