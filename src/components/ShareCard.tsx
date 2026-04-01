@@ -36,12 +36,15 @@ export function ShareCard({ symbol, totalQty, priceData }: ShareCardProps) {
     const labels = [];
     
     // Simple mock trend
-    let currentVal = price - (change * points);
+    // If change is 0 (like from the new API), use a small percentage of price to create a visual trend
+    const effectiveChange = change !== 0 ? change : (price * 0.005); 
+    let currentVal = price - (effectiveChange * points);
+    
     for (let i = 0; i < points; i++) {
       labels.push(`T-${points - i}`);
       data.push(currentVal);
       // Add some random noise to the trend
-      currentVal += change + (Math.random() * change * 0.5); 
+      currentVal += effectiveChange + ((Math.random() - 0.5) * Math.abs(effectiveChange)); 
     }
     labels.push('Now');
     data.push(price);

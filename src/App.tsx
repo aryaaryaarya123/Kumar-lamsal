@@ -92,6 +92,42 @@ export default function App() {
     return Object.entries(totals).sort((a, b) => b[1] - a[1]); // Sort by highest quantity
   }, []);
 
+  // Calculate overall summary
+  const summary = useMemo(() => {
+    let totalShares = 0;
+    let totalInvestment = 0;
+    let totalValueToday = 0;
+    let totalValueYesterday = 0;
+
+    for (const person in PORTFOLIO) {
+      for (const [sym, qty] of Object.entries(PORTFOLIO[person as keyof typeof PORTFOLIO])) {
+        totalShares += qty;
+        totalInvestment += qty * 100; // Assuming IPO price of 100
+        
+        const priceData = prices[sym] || { price: 0, change: 0 };
+        const currentPrice = priceData.price;
+        const previousPrice = currentPrice - priceData.change;
+
+        totalValueToday += qty * currentPrice;
+        totalValueYesterday += qty * previousPrice;
+      }
+    }
+
+    const gainLossToday = totalValueToday - totalValueYesterday;
+    const gainLossTotal = totalValueToday - totalInvestment;
+
+    return {
+      totalShares,
+      totalInvestment,
+      totalValueToday,
+      totalValueYesterday,
+      gainLossToday,
+      gainLossTotal,
+      isPositiveToday: gainLossToday >= 0,
+      isPositiveTotal: gainLossTotal >= 0
+    };
+  }, [prices]);
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
@@ -118,6 +154,35 @@ export default function App() {
             ⚠️ Could not load live data. Market may be closed or API temporary issue. Using cached/demo data.
           </div>
         )}
+
+        {/* Overall Summary Section */}
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-8">
+          <h2 className="text-xl font-bold text-slate-900 mb-4">Overall Portfolio Summary</h2>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+              <p className="text-sm text-slate-500 font-medium mb-1">Total Shares</p>
+              <p className="text-2xl font-bold text-slate-900">{summary.totalShares}</p>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+              <p className="text-sm text-slate-500 font-medium mb-1">Total Investment</p>
+              <p className="text-2xl font-bold text-slate-900">NPR {summary.totalInvestment.toLocaleString('en-NP')}</p>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+              <p className="text-sm text-slate-500 font-medium mb-1">Value Yesterday</p>
+              <p className="text-2xl font-bold text-slate-900">NPR {summary.totalValueYesterday.toLocaleString('en-NP', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+              <p className="text-sm text-slate-500 font-medium mb-1">Value Today</p>
+              <p className="text-2xl font-bold text-slate-900">NPR {summary.totalValueToday.toLocaleString('en-NP', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            <div className={`p-4 rounded-lg border ${summary.isPositiveToday ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+              <p className={`text-sm font-medium mb-1 ${summary.isPositiveToday ? 'text-emerald-700' : 'text-rose-700'}`}>Today's Gain/Loss</p>
+              <p className={`text-2xl font-bold ${summary.isPositiveToday ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {summary.isPositiveToday ? '+' : ''}NPR {summary.gainLossToday.toLocaleString('en-NP', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+          </div>
+        </div>
 
         <FamilyMemberSummary prices={prices} />
 
