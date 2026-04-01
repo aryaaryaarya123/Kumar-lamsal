@@ -24,60 +24,23 @@ export default function App() {
     const symbolsArray = Array.from(symbols);
 
     try {
-      // 1. Try to fetch all live market data at once
-      let bulkData: any[] = [];
-      try {
-        const res = await fetch('https://nepseapi.surajrimal.dev/LiveMarket');
-        if (res.ok) {
-          bulkData = await res.json();
-        }
-      } catch (err) {
-        console.warn("Bulk API failed, will fallback to individual API", err);
-      }
-
-      const bulkMap = new Map();
-      if (Array.isArray(bulkData)) {
-        bulkData.forEach((stock: any) => {
-          if (stock.symbol) {
-            bulkMap.set(stock.symbol, stock);
-          }
-        });
-      }
-
-      // 2. Process each symbol
       await Promise.all(symbolsArray.map(async (sym) => {
         try {
-          if (bulkMap.has(sym)) {
-            const stock = bulkMap.get(sym);
-            const priceStr = (stock.lastTradedPrice || stock.ltp || '0').toString().replace(/,/g, '');
-            const price = parseFloat(priceStr);
-            
-            // Calculate absolute change if not directly provided
-            let change = parseFloat((stock.change || '0').toString().replace(/,/g, ''));
-            if (!change && stock.percentageChange) {
-               const pct = parseFloat((stock.percentageChange || '0').toString().replace(/,/g, ''));
-               const prevClose = price / (1 + (pct / 100));
-               change = price - prevClose;
-            }
-            newPrices[sym] = { price, change };
-          } else {
-            // Fallback to individual stock API
-            const response = await fetch(`https://nepsetty.kokomo.workers.dev/api?symbol=${sym}`);
-            if (!response.ok) throw new Error(`Failed to fetch ${sym}`);
-            const stockData = await response.json();
-            
-            const priceStr = (stockData.ltp || stockData.lastTradedPrice || stockData.price || '0').toString().replace(/,/g, '');
-            const price = parseFloat(priceStr);
-            
-            // SAFETY CHECK – prevent wrong data
-            if (price <= 0) {
-              console.warn(`Skipped ${sym} – suspicious LTP=0`);
-              throw new Error(`Suspicious LTP=0 for ${sym}`);
-            }
-
-            const change = parseFloat((stockData.change || '0').toString().replace(/,/g, ''));
-            newPrices[sym] = { price, change };
+          const response = await fetch(`https://nepsetty.kokomo.workers.dev/api/stock?symbol=${sym}`);
+          if (!response.ok) throw new Error(`Failed to fetch ${sym}`);
+          const stockData = await response.json();
+          
+          const price = parseFloat(stockData.ltp || 0);
+          
+          // SAFETY CHECK – prevent wrong data
+          if (price <= 0) {
+            console.warn(`Skipped ${sym} – suspicious LTP=0`);
+            throw new Error(`Suspicious LTP=0 for ${sym}`);
           }
+
+          // The new API provides ltp, but not change. Defaulting to 0.
+          const change = 0;
+          newPrices[sym] = { price, change };
         } catch (err) {
           console.warn(`Failed to fetch data for ${sym}, using mock.`, err);
           newPrices[sym] = MOCK_PRICES[sym];
