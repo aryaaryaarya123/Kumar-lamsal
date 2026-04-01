@@ -24,28 +24,18 @@ export default function App() {
     const symbolsArray = Array.from(symbols);
 
     try {
-      await Promise.all(symbolsArray.map(async (sym) => {
-        try {
-          const response = await fetch(`https://nepsetty.kokomo.workers.dev/api/stock?symbol=${sym}`);
-          if (!response.ok) throw new Error(`Failed to fetch ${sym}`);
-          const stockData = await response.json();
-          
-          const price = parseFloat(stockData.ltp || 0);
-          
-          // SAFETY CHECK – prevent wrong data
-          if (price <= 0) {
-            console.warn(`Skipped ${sym} – suspicious LTP=0`);
-            throw new Error(`Suspicious LTP=0 for ${sym}`);
-          }
+      const response = await fetch(`/api/prices?symbols=${symbolsArray.join(',')}`);
+      if (!response.ok) throw new Error('Failed to fetch from backend');
+      const data = await response.json();
 
-          // The new API provides ltp, but not change. Defaulting to 0.
-          const change = 0;
-          newPrices[sym] = { price, change };
-        } catch (err) {
-          console.warn(`Failed to fetch data for ${sym}, using mock.`, err);
+      for (const sym of symbolsArray) {
+        if (data[sym]) {
+          newPrices[sym] = data[sym];
+        } else {
+          console.warn(`Missing data for ${sym}, using mock.`);
           newPrices[sym] = MOCK_PRICES[sym];
         }
-      }));
+      }
 
       // Check if we ended up using mostly mock data
       const isMostlyMock = symbolsArray.every(sym => newPrices[sym] === MOCK_PRICES[sym]);
