@@ -7,7 +7,7 @@ export const PORTFOLIO = {
 };
 
 export const IPO_PRICE = 100;
-export const TOTAL_INVESTMENT = 15500;
+export const TOTAL_INVESTMENT = 14000;
 
 export const MOCK_PRICES: Record<string, { price: number; change: number }> = {
     NRN: { price: 850.00, change: -12.5 },
