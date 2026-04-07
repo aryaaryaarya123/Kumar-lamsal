@@ -15,7 +15,10 @@ export function FamilyMemberSummary({ prices }: FamilyMemberSummaryProps) {
 
       for (const [sym, qty] of Object.entries(holdings)) {
         totalShares += qty;
-        totalInvested += qty * IPO_PRICE;
+        
+        let cost = qty * IPO_PRICE;
+        if (name === "Arya Lamsal" && sym === "NRN") cost = 0; // Got these for free
+        totalInvested += cost;
         
         const priceData = prices[sym] || { price: IPO_PRICE, change: 0 };
         totalCurrent += qty * priceData.price;

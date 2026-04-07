@@ -102,7 +102,10 @@ export default function App() {
     for (const person in PORTFOLIO) {
       for (const [sym, qty] of Object.entries(PORTFOLIO[person as keyof typeof PORTFOLIO])) {
         totalShares += qty;
-        totalInvestment += qty * 100; // Assuming IPO price of 100
+        
+        let cost = qty * 100; // Assuming IPO price of 100
+        if (person === "Arya Lamsal" && sym === "NRN") cost = 0; // Got these for free
+        totalInvestment += cost;
         
         const priceData = prices[sym] || { price: 0, change: 0 };
         const currentPrice = priceData.price;
