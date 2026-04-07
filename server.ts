@@ -28,16 +28,34 @@ async function initDB() {
         date_str VARCHAR(10) NOT NULL,
         symbol VARCHAR(20) NOT NULL,
         price NUMERIC NOT NULL,
+        volume NUMERIC DEFAULT 0,
         PRIMARY KEY (date_str, symbol)
       );
     `);
+    
+    // Ensure the volume column exists (even if the table was created before)
+    try {
+      await pool.query(`ALTER TABLE daily_prices ADD COLUMN IF NOT EXISTS volume NUMERIC DEFAULT 0`);
+    } catch (e) {
+      console.log("Volume column already exists or table is new.");
+    }
+    
+    // Implement Rolling 1-Year Retention (FIFO)
+    const deleteRes = await pool.query(`
+      DELETE FROM daily_prices 
+      WHERE TO_DATE(date_str, 'YYYY-MM-DD') < CURRENT_DATE - INTERVAL '1 year'
+    `);
+    if (deleteRes.rowCount > 0) {
+      console.log(`Cleaned up ${deleteRes.rowCount} old records (Retention Policy: 1 Year).`);
+    }
+
     console.log("Database initialized successfully");
 
     // Check if we need to seed historical data
     const countRes = await pool.query(`SELECT COUNT(*) FROM daily_prices`);
-    if (parseInt(countRes.rows[0].count) < 10) {
-      console.log("Database is mostly empty. Seeding 30 days of historical data...");
-      await seedHistoricalData();
+    if (parseInt(countRes.rows[0].count) < 100) {
+      console.log("Database is empty or near empty. Seeding from database.json...");
+      await seedFromJSON();
     }
   } catch (err: any) {
     console.error("Failed to initialize database. Note: Internal Render URLs only work on Render.", err.message);
@@ -48,26 +66,35 @@ async function seedFromJSON() {
   const jsonPath = path.join(process.cwd(), "database.json");
   if (!fs.existsSync(jsonPath)) {
     console.log("No database.json found for seeding.");
-    // Fallback to the original random seeder if JSON is missing
     return await seedHistoricalData();
   }
 
   try {
     const rawData = fs.readFileSync(jsonPath, "utf8");
     const data = JSON.parse(rawData);
-    console.log(`Seeding ${data.length} records into the database...`);
+    console.log(`Seeding ${data.length} records into the database (Optimized)...`);
     
-    // Process in batches of 100 to avoid overwhelming the pool
-    for (let i = 0; i < data.length; i += 100) {
-      const batch = data.slice(i, i + 100);
-      const queries = batch.map((row: any) => 
-        pool.query(
-          `INSERT INTO daily_prices (date_str, symbol, price) VALUES ($1, $2, $3)
-           ON CONFLICT (date_str, symbol) DO NOTHING`,
-          [row.date_str, row.symbol, row.price]
-        )
-      );
-      await Promise.all(queries);
+    // Use large batches of 1000 for maximum speed
+    const BATCH_SIZE = 1000;
+    for (let i = 0; i < data.length; i += BATCH_SIZE) {
+      const batch = data.slice(i, i + BATCH_SIZE);
+      
+      // Build a single multi-row INSERT query
+      const values: any[] = [];
+      const placeholders = batch.map((row: any, idx: number) => {
+        const offset = idx * 4;
+        values.push(row.date_str, row.symbol, row.price, row.volume || 0);
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`;
+      }).join(",");
+
+      const query = `
+        INSERT INTO daily_prices (date_str, symbol, price, volume) 
+        VALUES ${placeholders}
+        ON CONFLICT (date_str, symbol) DO NOTHING
+      `;
+      
+      await pool.query(query, values);
+      if (i % 5000 === 0) console.log(`Injected ${i} records...`);
     }
     console.log("Database injection from JSON completed successfully.");
   } catch (err: any) {

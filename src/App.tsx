@@ -3,9 +3,13 @@ import { FamilyMemberSummary } from './components/FamilyMemberSummary';
 import { ShareCard } from './components/ShareCard';
 import { PORTFOLIO, MOCK_PRICES } from './lib/data';
 import { MarketTerminal } from './components/MarketTerminal';
-
 export default function App() {
-  const [prices, setPrices] = useState<Record<string, { price: number; change: number; history?: {date: string, price: number}[] }>>({});
+  const [prices, setPrices] = useState<Record<string, { 
+    price: number; 
+    change: number; 
+    totalVolume1Y?: number;
+    history?: {date: string, price: number, volume?: number}[] 
+  }>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -21,7 +25,12 @@ export default function App() {
       }
     }
 
-    const newPrices: Record<string, { price: number; change: number; history?: {date: string, price: number}[] }> = {};
+    const newPrices: Record<string, { 
+      price: number; 
+      change: number; 
+      totalVolume1Y?: number;
+      history?: {date: string, price: number, volume?: number}[] 
+    }> = {};
     const symbolsArray = Array.from(symbols);
 
     try {
@@ -29,9 +38,11 @@ export default function App() {
       if (!response.ok) throw new Error('Failed to fetch from backend');
       const data = await response.json();
 
+      let realDataCount = 0;
       for (const sym of symbolsArray) {
-        if (data[sym]) {
+        if (data[sym] && data[sym].price > 0) {
           newPrices[sym] = data[sym];
+          realDataCount++;
         } else {
           console.warn(`Missing data for ${sym}, using mock.`);
           newPrices[sym] = { ...MOCK_PRICES[sym], totalVolume1Y: 0, history: [] };
@@ -39,8 +50,7 @@ export default function App() {
       }
 
       // Check if we ended up using mostly mock data
-      const isMostlyMock = symbolsArray.every(sym => newPrices[sym] === MOCK_PRICES[sym]);
-      if (isMostlyMock) {
+      if (realDataCount === 0) {
         setError(true);
       } else {
         setLastUpdated(new Date());
