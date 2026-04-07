@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { FamilyMemberSummary } from './components/FamilyMemberSummary';
 import { ShareCard } from './components/ShareCard';
 import { PORTFOLIO, MOCK_PRICES } from './lib/data';
+import { MarketTerminal } from './components/MarketTerminal';
 
 export default function App() {
   const [prices, setPrices] = useState<Record<string, { price: number; change: number; history?: {date: string, price: number}[] }>>({});
