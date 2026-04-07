@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import { Search, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
 
 export function MarketTerminal() {
@@ -7,7 +7,7 @@ export function MarketTerminal() {
   const [error, setError] = useState('');
   const [data, setData] = useState<any>(null);
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
     if (!symbol.trim()) return;
 
