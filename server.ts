@@ -45,7 +45,7 @@ async function initDB() {
 }
 
 async function seedHistoricalData() {
-  const symbols = ["NHPC", "NRN", "BANDIPUR", "HFIN", "SKHL", "PPCL", "SOHL", "DHEL", "HBL", "OMPL", "SYPNL"];
+  const symbols = ["NRN", "BANDIPUR", "HFIN", "SKHL", "PPCL", "SOHL", "DHEL", "HBL", "OMPL", "SYPNL"];
   const today = new Date();
   
   for (const sym of symbols) {

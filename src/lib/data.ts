@@ -1,5 +1,5 @@
 export const PORTFOLIO = {
-    "Arya Lamsal":  { NHPC: 10, NRN: 15 },
+    "Arya Lamsal":  { NRN: 15 },
     "Aryan Lamsal": { BANDIPUR: 10, HFIN: 10, SKHL: 10, NRN: 15 },
     "Yashoda":      { BANDIPUR: 10, PPCL: 20 },
     "Agaman":       { SOHL: 10, NRN: 15 },
@@ -7,10 +7,9 @@ export const PORTFOLIO = {
 };
 
 export const IPO_PRICE = 100;
-export const TOTAL_INVESTMENT = 16500;
+export const TOTAL_INVESTMENT = 15500;
 
 export const MOCK_PRICES: Record<string, { price: number; change: number }> = {
-    NHPC: { price: 285.50, change: 5.2 },
     NRN: { price: 850.00, change: -12.5 },
     BANDIPUR: { price: 420.10, change: 10.0 },
     HFIN: { price: 315.00, change: -2.0 },
