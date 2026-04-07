@@ -44,6 +44,37 @@ async function initDB() {
   }
 }
 
+async function seedFromJSON() {
+  const jsonPath = path.join(process.cwd(), "database.json");
+  if (!fs.existsSync(jsonPath)) {
+    console.log("No database.json found for seeding.");
+    // Fallback to the original random seeder if JSON is missing
+    return await seedHistoricalData();
+  }
+
+  try {
+    const rawData = fs.readFileSync(jsonPath, "utf8");
+    const data = JSON.parse(rawData);
+    console.log(`Seeding ${data.length} records into the database...`);
+    
+    // Process in batches of 100 to avoid overwhelming the pool
+    for (let i = 0; i < data.length; i += 100) {
+      const batch = data.slice(i, i + 100);
+      const queries = batch.map((row: any) => 
+        pool.query(
+          `INSERT INTO daily_prices (date_str, symbol, price) VALUES ($1, $2, $3)
+           ON CONFLICT (date_str, symbol) DO NOTHING`,
+          [row.date_str, row.symbol, row.price]
+        )
+      );
+      await Promise.all(queries);
+    }
+    console.log("Database injection from JSON completed successfully.");
+  } catch (err: any) {
+    console.error("Failed to seed from JSON:", err.message);
+  }
+}
+
 async function seedHistoricalData() {
   const symbols = ["NRN", "BANDIPUR", "HFIN", "SKHL", "PPCL", "SOHL", "DHEL", "HBL", "OMPL", "SYPNL"];
   const today = new Date();
