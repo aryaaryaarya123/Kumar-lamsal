@@ -158,6 +158,9 @@ export default function App() {
           </div>
         )}
 
+        {/* NEPSE Market Terminal */}
+        <MarketTerminal />
+
         {/* Overall Summary Section */}
         <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm mb-8">
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-4">Overall Portfolio Summary</h2>

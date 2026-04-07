@@ -90,6 +90,65 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+  // API Route to fetch a single stock for the Market Terminal
+  app.get("/api/stock/:symbol", async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    try {
+      let stock = null;
+      let ltp = 0, prevClose = 0, pointChange = 0, percentChange = 0, open = 0, high = 0, low = 0, volume = 0;
+
+      // 1. Try NEPSE directly
+      try {
+        const response = await fetch('https://newweb.nepalstock.com/api/nots/nepse-data/today-price?&size=500', {
+          headers: {
+            'User-Agent': 'Mozilla/5.0',
+            'Referer': 'https://newweb.nepalstock.com/',
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const stocks = Array.isArray(data) ? data : (data.content || []);
+          stock = stocks.find((s: any) => s.symbol === symbol);
+          if (stock) {
+            ltp = stock.closePrice || stock.lastTradedPrice || 0;
+            prevClose = stock.previousDayClosePrice || 0;
+            open = stock.openPrice || 0;
+            high = stock.highPrice || 0;
+            low = stock.lowPrice || 0;
+            volume = stock.totalTradeQuantity || stock.volume || 0;
+            pointChange = ltp - prevClose;
+            percentChange = prevClose ? (pointChange / prevClose) * 100 : 0;
+          }
+        }
+      } catch (e) {
+        // Fallback below
+      }
+
+      // 2. Try the existing proxy fallback
+      if (!stock) {
+        const fbRes = await fetch(`https://nepsetty.kokomo.workers.dev/api/stock?symbol=${symbol}`);
+        if (!fbRes.ok) throw new Error("Fallback API down");
+        const fbData = await fbRes.json();
+        
+        if (!fbData.symbol || !fbData.ltp) {
+          return res.status(404).json({ error: "Invalid scrip symbol" });
+        }
+        
+        ltp = parseFloat(fbData.ltp);
+        pointChange = parseFloat(fbData.pointChange || "0");
+        percentChange = parseFloat(fbData.percentChange || "0");
+        open = parseFloat(fbData.open || "0");
+        high = parseFloat(fbData.high || "0");
+        low = parseFloat(fbData.low || "0");
+        volume = parseFloat(fbData.volume || "0");
+      }
+
+      res.json({ symbol, ltp, pointChange, percentChange, open, high, low, volume });
+    } catch (error) {
+      res.status(502).json({ error: "Data currently unavailable from NEPSE." });
+    }
+  });
+
   // API Route to fetch prices from NEPSE API and compare with DB
   app.get("/api/prices", async (req, res) => {
     const symbols = ((req.query.symbols as string) || "").split(",").filter(Boolean);
