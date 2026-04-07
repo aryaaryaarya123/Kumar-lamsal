@@ -21,19 +21,24 @@ for (const sym of uniqueSymbols) {
     hash = sym.charCodeAt(i) + ((hash << 5) - hash);
   }
   let basePrice = 200 + (Math.abs(hash) % 800);
+  let baseVolume = 10000 + (Math.abs(hash) % 90000);
   
   let currentPrice = basePrice;
   
-  // 15 days of history
-  for (let i = 15; i >= 0; i--) {
+  // 365 days of history
+  for (let i = 365; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(today.getDate() - i);
     const dateStr = getNepalDateStr(date);
     
+    // Random walk for volume
+    const vol = baseVolume * (0.8 + Math.random() * 0.4);
+
     history.push({
       date_str: dateStr,
       symbol: sym,
-      price: parseFloat(currentPrice.toFixed(2))
+      price: parseFloat(currentPrice.toFixed(2)),
+      volume: Math.floor(vol)
     });
     
     // Random walk

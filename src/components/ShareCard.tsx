@@ -19,15 +19,27 @@ interface ShareCardProps {
   key?: React.Key;
   symbol: string;
   totalQty: number;
-  priceData: { price: number; change: number; history?: {date: string, price: number}[] };
+  priceData: { 
+    price: number; 
+    change: number; 
+    totalVolume1Y?: number;
+    history?: {date: string, price: number, volume?: number}[] 
+  };
 }
 
 export function ShareCard({ symbol, totalQty, priceData }: ShareCardProps) {
   const [timeRange, setTimeRange] = useState<'1D' | '1W' | '1M' | '1Y'>('1M');
 
-  const { price, change, history = [] } = priceData;
+  const { price, change, history = [], totalVolume1Y = 0 } = priceData;
   const isPositive = change >= 0;
   const changePercent = price > 0 ? (change / (price - change)) * 100 : 0;
+
+  // Format large volume numbers
+  const formatVol = (vol: number) => {
+    if (vol >= 1000000) return (vol / 1000000).toFixed(2) + 'M';
+    if (vol >= 1000) return (vol / 1000).toFixed(1) + 'K';
+    return vol.toString();
+  };
 
   // Generate chart data based on real history from database
   const chartData = useMemo(() => {
@@ -43,7 +55,8 @@ export function ShareCard({ symbol, totalQty, priceData }: ShareCardProps) {
       else if (timeRange === '1Y') cutoffDate.setFullYear(now.getFullYear() - 1);
       
       if (timeRange !== '1D') {
-        filteredHistory = filteredHistory.filter(h => new Date(h.date) >= cutoffDate);
+        const cutoffStr = cutoffDate.toISOString().split('T')[0];
+        filteredHistory = filteredHistory.filter(h => h.date >= cutoffStr);
       } else {
         // For 1D, just show the last 2 points if available
         filteredHistory = filteredHistory.slice(-2);
@@ -106,6 +119,7 @@ export function ShareCard({ symbol, totalQty, priceData }: ShareCardProps) {
         </div>
         <div className="text-right">
           <div className="text-xl sm:text-2xl font-bold text-slate-900">{formatCurrency(price)}</div>
+          <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">1Y Vol: {formatVol(totalVolume1Y)}</p>
           <div className={`text-xs sm:text-sm font-medium mt-1 flex items-center justify-end gap-1 ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
             {isPositive ? (
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 sm:w-4 sm:h-4">

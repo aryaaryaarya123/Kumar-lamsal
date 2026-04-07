@@ -186,18 +186,24 @@ async function startServer() {
     if (!symbols.length) return res.json({});
 
     const todayStr = getNepalDateStr();
-    const results: Record<string, { price: number; change: number; history: {date: string, price: number}[] }> = {};
+    const results: Record<string, { 
+      price: number; 
+      change: number; 
+      totalVolume1Y: number;
+      history: {date: string, price: number, volume: number}[] 
+    }> = {};
 
     // 1. Fetch live prices
-    const livePrices: Record<string, number> = {};
+    const livePrices: Record<string, { price: number; volume: number }> = {};
     await Promise.all(symbols.map(async (sym) => {
       try {
         const response = await fetch(`https://nepsetty.kokomo.workers.dev/api/stock?symbol=${sym}`);
         if (response.ok) {
           const data = await response.json();
           const price = parseFloat(data.ltp || 0);
+          const volume = parseFloat(data.volume || 0);
           if (price > 0) {
-            livePrices[sym] = price;
+            livePrices[sym] = { price, volume };
           }
         }
       } catch (e) {
@@ -208,7 +214,8 @@ async function startServer() {
     // 2. Try to get previous day's prices from DB and save today's prices
     let dbAvailable = false;
     let previousPrices: Record<string, number> = {};
-    const historyData: Record<string, {date: string, price: number}[]> = {};
+    const historyData: Record<string, {date: string, price: number, volume: number}[]> = {};
+    const totalVolume1Y: Record<string, number> = {};
 
     try {
       // Get the most recent date in the DB that is strictly less than today
@@ -231,23 +238,29 @@ async function startServer() {
       // Save today's prices
       for (const sym of Object.keys(livePrices)) {
         await pool.query(
-          `INSERT INTO daily_prices (date_str, symbol, price) VALUES ($1, $2, $3)
-           ON CONFLICT (date_str, symbol) DO UPDATE SET price = EXCLUDED.price`,
-          [todayStr, sym, livePrices[sym]]
+          `INSERT INTO daily_prices (date_str, symbol, price, volume) VALUES ($1, $2, $3, $4)
+           ON CONFLICT (date_str, symbol) DO UPDATE SET price = EXCLUDED.price, volume = EXCLUDED.volume`,
+          [todayStr, sym, livePrices[sym].price, livePrices[sym].volume]
         );
       }
       
-      // Fetch last 30 days of history for the charts
+      // Fetch last 365 days of history and volume
       const historyRes = await pool.query(
-        `SELECT date_str, symbol, price FROM daily_prices 
+        `SELECT date_str, symbol, price, volume FROM daily_prices 
          WHERE date_str >= $1 
          ORDER BY date_str ASC`,
-        [getNepalDateStr(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))]
+        [getNepalDateStr(new Date(Date.now() - 365 * 24 * 60 * 60 * 1000))]
       );
       
       historyRes.rows.forEach(row => {
         if (!historyData[row.symbol]) historyData[row.symbol] = [];
-        historyData[row.symbol].push({ date: row.date_str, price: parseFloat(row.price) });
+        const vol = parseFloat(row.volume || 0);
+        historyData[row.symbol].push({ 
+          date: row.date_str, 
+          price: parseFloat(row.price),
+          volume: vol
+        });
+        totalVolume1Y[row.symbol] = (totalVolume1Y[row.symbol] || 0) + vol;
       });
 
       dbAvailable = true;
@@ -257,7 +270,7 @@ async function startServer() {
 
     // 3. Combine results
     for (const sym of symbols) {
-      const currentPrice = livePrices[sym] || 0;
+      const currentPrice = livePrices[sym]?.price || 0;
       let change = 0;
       if (dbAvailable && previousPrices[sym] && currentPrice > 0) {
         change = currentPrice - previousPrices[sym];
@@ -265,6 +278,7 @@ async function startServer() {
       results[sym] = { 
         price: currentPrice, 
         change,
+        totalVolume1Y: totalVolume1Y[sym] || 0,
         history: historyData[sym] || []
       };
     }

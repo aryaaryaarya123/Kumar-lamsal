@@ -34,7 +34,7 @@ export default function App() {
           newPrices[sym] = data[sym];
         } else {
           console.warn(`Missing data for ${sym}, using mock.`);
-          newPrices[sym] = MOCK_PRICES[sym];
+          newPrices[sym] = { ...MOCK_PRICES[sym], totalVolume1Y: 0, history: [] };
         }
       }
 
@@ -222,6 +222,12 @@ export default function App() {
         <footer className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-slate-200 text-center text-slate-500 font-medium text-xs sm:text-sm">
           Grand total across all portfolios: 165 shares
         </footer>
+      </div>
+    </div>
+  );
+}
+
+r>
       </div>
     </div>
   );
