@@ -155,9 +155,9 @@ async function startServer() {
   app.get("/api/stock/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
     try {
-      // 1. Fetch the absolute latest record for current day stats
+      // Fetch the absolute latest record which contains pre-calculated stats
       const latestRes = await pool.query(
-        `SELECT price, volume FROM daily_prices 
+        `SELECT price, volume, high52, low52 FROM daily_prices 
          WHERE symbol = $1 
          ORDER BY date_str DESC 
          LIMIT 1`,
@@ -171,20 +171,10 @@ async function startServer() {
       const latest = latestRes.rows[0];
       const ltp = parseFloat(latest.price);
       const volume = parseFloat(latest.volume || 0);
+      const high52 = parseFloat(latest.high52 || ltp);
+      const low52 = parseFloat(latest.low52 || ltp);
 
-      // 2. Fetch the REAL 52-week High and Low by scanning the last 365 days of price records
-      const statsRes = await pool.query(
-        `SELECT MAX(price) as high52, MIN(price) as low52 
-         FROM daily_prices 
-         WHERE symbol = $1 
-         AND TO_DATE(date_str, 'YYYY-MM-DD') >= CURRENT_DATE - INTERVAL '1 year'`,
-        [symbol]
-      );
-      
-      const high52 = parseFloat(statsRes.rows[0].high52 || ltp);
-      const low52 = parseFloat(statsRes.rows[0].low52 || ltp);
-
-      // 3. Fetch previous day's close to calculate change
+      // Fetch previous day's close to calculate change
       const prevRes = await pool.query(
         `SELECT price FROM daily_prices 
          WHERE symbol = $1 AND date_str < (SELECT MAX(date_str) FROM daily_prices WHERE symbol = $1)
