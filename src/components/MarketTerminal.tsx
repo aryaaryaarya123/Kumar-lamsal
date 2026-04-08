@@ -149,7 +149,7 @@ export function MarketTerminal() {
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{stat.label}</span>
                     </div>
                     <p className="text-2xl font-bold text-slate-900">
-                      {stat.value ? stat.value.toLocaleString() : '—'}
+                      {stat.value !== undefined && stat.value !== null ? stat.value.toLocaleString() : '—'}
                     </p>
                   </motion.div>
                 ))}
