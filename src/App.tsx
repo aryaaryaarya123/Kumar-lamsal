@@ -3,6 +3,7 @@ import { FamilyMemberSummary } from './components/FamilyMemberSummary';
 import { ShareCard } from './components/ShareCard';
 import { PORTFOLIO, MOCK_PRICES } from './lib/data';
 import { MarketTerminal } from './components/MarketTerminal';
+
 export default function App() {
   const [prices, setPrices] = useState<Record<string, { 
     price: number; 
@@ -236,10 +237,3 @@ export default function App() {
     </div>
   );
 }
-
-r>
-      </div>
-    </div>
-  );
-}
-
