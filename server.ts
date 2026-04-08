@@ -29,15 +29,19 @@ async function initDB() {
         symbol VARCHAR(20) NOT NULL,
         price NUMERIC NOT NULL,
         volume NUMERIC DEFAULT 0,
+        high52 NUMERIC,
+        low52 NUMERIC,
         PRIMARY KEY (date_str, symbol)
       );
     `);
     
-    // Ensure the volume column exists (even if the table was created before)
+    // Ensure new columns exist for existing tables
     try {
       await pool.query(`ALTER TABLE daily_prices ADD COLUMN IF NOT EXISTS volume NUMERIC DEFAULT 0`);
+      await pool.query(`ALTER TABLE daily_prices ADD COLUMN IF NOT EXISTS high52 NUMERIC`);
+      await pool.query(`ALTER TABLE daily_prices ADD COLUMN IF NOT EXISTS low52 NUMERIC`);
     } catch (e) {
-      console.log("Volume column already exists or table is new.");
+      console.log("Columns update check complete.");
     }
     
     // Implement Rolling 1-Year Retention (FIFO)
@@ -72,23 +76,21 @@ async function seedFromJSON() {
   try {
     const rawData = fs.readFileSync(jsonPath, "utf8");
     const data = JSON.parse(rawData);
-    console.log(`Seeding ${data.length} records into the database (Optimized)...`);
+    console.log(`Seeding ${data.length} records into the database (Optimized with 52W)...`);
     
-    // Use large batches of 1000 for maximum speed
     const BATCH_SIZE = 1000;
     for (let i = 0; i < data.length; i += BATCH_SIZE) {
       const batch = data.slice(i, i + BATCH_SIZE);
       
-      // Build a single multi-row INSERT query
       const values: any[] = [];
       const placeholders = batch.map((row: any, idx: number) => {
-        const offset = idx * 4;
-        values.push(row.date_str, row.symbol, row.price, row.volume || 0);
-        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`;
+        const offset = idx * 6;
+        values.push(row.date_str, row.symbol, row.price, row.volume || 0, row.high52, row.low52);
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`;
       }).join(",");
 
       const query = `
-        INSERT INTO daily_prices (date_str, symbol, price, volume) 
+        INSERT INTO daily_prices (date_str, symbol, price, volume, high52, low52) 
         VALUES ${placeholders}
         ON CONFLICT (date_str, symbol) DO NOTHING
       `;
@@ -96,7 +98,7 @@ async function seedFromJSON() {
       await pool.query(query, values);
       if (i % 5000 === 0) console.log(`Injected ${i} records...`);
     }
-    console.log("Database injection from JSON completed successfully.");
+    console.log("Database injection with 52W stats completed.");
   } catch (err: any) {
     console.error("Failed to seed from JSON:", err.message);
   }
@@ -155,7 +157,7 @@ async function startServer() {
     try {
       // 1. Fetch the absolute latest record for current day stats
       const latestRes = await pool.query(
-        `SELECT price, volume FROM daily_prices 
+        `SELECT price, volume, high52, low52 FROM daily_prices 
          WHERE symbol = $1 
          ORDER BY date_str DESC 
          LIMIT 1`,
@@ -169,20 +171,10 @@ async function startServer() {
       const latest = latestRes.rows[0];
       const ltp = parseFloat(latest.price);
       const volume = parseFloat(latest.volume || 0);
+      const high52 = parseFloat(latest.high52 || ltp);
+      const low52 = parseFloat(latest.low52 || ltp);
 
-      // 2. Fetch the 52-week High and Low (last 365 days)
-      const statsRes = await pool.query(
-        `SELECT MAX(price) as high52, MIN(price) as low52 
-         FROM daily_prices 
-         WHERE symbol = $1 
-         AND TO_DATE(date_str, 'YYYY-MM-DD') >= CURRENT_DATE - INTERVAL '1 year'`,
-        [symbol]
-      );
-      
-      const high52 = parseFloat(statsRes.rows[0].high52 || ltp);
-      const low52 = parseFloat(statsRes.rows[0].low52 || ltp);
-
-      // 3. Fetch previous day's close to calculate change
+      // 2. Fetch previous day's close to calculate change
       const prevRes = await pool.query(
         `SELECT price FROM daily_prices 
          WHERE symbol = $1 AND price != $2
@@ -269,12 +261,31 @@ async function startServer() {
         });
       }
 
-      // Save today's prices
+      // Save today's prices with updated 52-week high/low
       for (const sym of Object.keys(livePrices)) {
+        const ltp = livePrices[sym].price;
+        const vol = livePrices[sym].volume;
+
+        // Fetch current 52-week stats for this symbol
+        const stats = await pool.query(
+          `SELECT MAX(price) as h, MIN(price) as l FROM daily_prices 
+           WHERE symbol = $1 AND TO_DATE(date_str, 'YYYY-MM-DD') >= CURRENT_DATE - INTERVAL '1 year'`,
+          [sym]
+        );
+        
+        let high52 = Math.max(ltp, parseFloat(stats.rows[0].h || 0));
+        let low52 = parseFloat(stats.rows[0].l || ltp);
+        if (ltp > 0) low52 = Math.min(ltp, low52);
+
         await pool.query(
-          `INSERT INTO daily_prices (date_str, symbol, price, volume) VALUES ($1, $2, $3, $4)
-           ON CONFLICT (date_str, symbol) DO UPDATE SET price = EXCLUDED.price, volume = EXCLUDED.volume`,
-          [todayStr, sym, livePrices[sym].price, livePrices[sym].volume]
+          `INSERT INTO daily_prices (date_str, symbol, price, volume, high52, low52) 
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (date_str, symbol) DO UPDATE SET 
+             price = EXCLUDED.price, 
+             volume = EXCLUDED.volume,
+             high52 = EXCLUDED.high52,
+             low52 = EXCLUDED.low52`,
+          [todayStr, sym, ltp, vol, high52, low52]
         );
       }
       

@@ -64,10 +64,11 @@ async function generateAll() {
     process.stdout.write(`[${i+1}/${uniqueSymbols.length}] Fetching ${sym}... `);
     
     let realData = await fetchRealHistory(sym);
+    let records = [];
     
     if (realData && realData.length > 0) {
       console.log(`Got ${realData.length} real records.`);
-      history.push(...realData);
+      records = realData;
     } else {
       console.log(`Failed. Generating simulated data.`);
       // Fallback: Random walk
@@ -83,7 +84,7 @@ async function generateAll() {
         const dateStr = getNepalDateStr(date);
         const vol = baseVolume * (0.5 + Math.random());
         
-        history.push({
+        records.push({
           date_str: dateStr,
           symbol: sym,
           price: parseFloat(currentPrice.toFixed(2)),
@@ -93,6 +94,19 @@ async function generateAll() {
         currentPrice = currentPrice * (1 + change);
       }
     }
+
+    // Calculate trailing 52-week high/low for each record
+    // For simplicity in the seeder, we'll use the max/min of the available history
+    const allPrices = records.map(r => r.price);
+    const high52 = Math.max(...allPrices);
+    const low52 = Math.min(...allPrices);
+
+    records.forEach(r => {
+      r.high52 = high52;
+      r.low52 = low52;
+    });
+
+    history.push(...records);
     
     // Tiny delay to avoid rate limiting
     if (i % 5 === 0) await new Promise(r => setTimeout(r, 100));
