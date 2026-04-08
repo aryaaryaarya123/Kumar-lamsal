@@ -153,23 +153,24 @@ async function startServer() {
   app.get("/api/stock/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
     try {
-      // Fetch the two most recent records to calculate change
-      const dbRes = await pool.query(
+      // 1. Fetch the absolute latest record for current day stats
+      const latestRes = await pool.query(
         `SELECT price, volume FROM daily_prices 
          WHERE symbol = $1 
          ORDER BY date_str DESC 
-         LIMIT 2`,
+         LIMIT 1`,
         [symbol]
       );
       
-      if (dbRes.rows.length === 0) {
+      if (latestRes.rows.length === 0) {
         return res.status(404).json({ error: "Scrip symbol not found in database." });
       }
 
-      const latest = dbRes.rows[0];
-      const previous = dbRes.rows[1];
+      const latest = latestRes.rows[0];
+      const ltp = parseFloat(latest.price);
+      const volume = parseFloat(latest.volume || 0);
 
-      // Calculate 52-week high and low from database
+      // 2. Fetch the 52-week High and Low (last 365 days)
       const statsRes = await pool.query(
         `SELECT MAX(price) as high52, MIN(price) as low52 
          FROM daily_prices 
@@ -178,22 +179,21 @@ async function startServer() {
         [symbol]
       );
       
-      const high52 = parseFloat(statsRes.rows[0].high52 || latest.price);
-      const low52 = parseFloat(statsRes.rows[0].low52 || latest.price);
+      const high52 = parseFloat(statsRes.rows[0].high52 || ltp);
+      const low52 = parseFloat(statsRes.rows[0].low52 || ltp);
 
-      const ltp = parseFloat(latest.price);
-      const volume = parseFloat(latest.volume || 0);
-      
-      // Since it's EOD data from DB, we'll use LTP as High/Low/Open for the terminal card 
-      const open = ltp; 
-      const high = ltp;
-      const low = ltp;
+      // 3. Fetch previous day's close to calculate change
+      const prevRes = await pool.query(
+        `SELECT price FROM daily_prices 
+         WHERE symbol = $1 AND price != $2
+         ORDER BY date_str DESC LIMIT 1`,
+        [symbol, ltp]
+      );
 
       let pointChange = 0;
       let percentChange = 0;
-
-      if (previous) {
-        const prevPrice = parseFloat(previous.price);
+      if (prevRes.rows.length > 0) {
+        const prevPrice = parseFloat(prevRes.rows[0].price);
         pointChange = ltp - prevPrice;
         percentChange = (pointChange / prevPrice) * 100;
       }
@@ -203,9 +203,6 @@ async function startServer() {
         ltp, 
         pointChange, 
         percentChange, 
-        open, 
-        high, 
-        low, 
         volume,
         high52,
         low52,

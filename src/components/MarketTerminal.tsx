@@ -129,10 +129,9 @@ export function MarketTerminal() {
               </div>
 
               {/* Metrics Grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { label: 'Open', value: data.open, icon: Activity, color: 'text-blue-500', bg: 'bg-blue-50' },
-                  { label: 'Total Volume', value: data.volume, icon: BarChart3, color: 'text-amber-500', bg: 'bg-amber-50' },
+                  { label: 'Volume Traded', value: data.volume, icon: BarChart3, color: 'text-amber-500', bg: 'bg-amber-50' },
                   { label: '52W High', value: data.high52, icon: Maximize2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
                   { label: '52W Low', value: data.low52, icon: Minimize2, color: 'text-rose-500', bg: 'bg-rose-50' },
                 ].map((stat, idx) => (
@@ -141,15 +140,15 @@ export function MarketTerminal() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 + (idx * 0.05) }}
-                    className="bg-white border border-slate-100 p-4 rounded-xl shadow-sm hover:border-slate-200 transition-colors"
+                    className="bg-white border border-slate-100 p-5 rounded-xl shadow-sm hover:border-slate-200 transition-colors"
                   >
                     <div className="flex items-center gap-3 mb-3">
                       <div className={`p-2 ${stat.bg} rounded-lg`}>
-                        <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                        <stat.icon className={`w-5 h-5 ${stat.color}`} />
                       </div>
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{stat.label}</span>
                     </div>
-                    <p className="text-xl font-bold text-slate-900">
+                    <p className="text-2xl font-bold text-slate-900">
                       {stat.value ? stat.value.toLocaleString() : '—'}
                     </p>
                   </motion.div>
