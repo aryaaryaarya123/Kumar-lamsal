@@ -152,53 +152,85 @@ async function startServer() {
   app.get("/api/stock/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
     try {
-      let stock = null;
-      let ltp = 0, prevClose = 0, pointChange = 0, percentChange = 0, open = 0, high = 0, low = 0, volume = 0;
+      let ltp = 0, pointChange = 0, percentChange = 0, open = 0, high = 0, low = 0, volume = 0;
+      let foundLive = false;
 
-      // 1. Try NEPSE directly
+      // 1. Try NEPSE directly with optimized headers
       try {
         const response = await fetch('https://newweb.nepalstock.com/api/nots/nepse-data/today-price?&size=500', {
           headers: {
-            'User-Agent': 'Mozilla/5.0',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Referer': 'https://newweb.nepalstock.com/',
+            'Accept': 'application/json, text/plain, */*',
+            'Host': 'newweb.nepalstock.com'
           }
         });
         if (response.ok) {
           const data = await response.json();
           const stocks = Array.isArray(data) ? data : (data.content || []);
-          stock = stocks.find((s: any) => s.symbol === symbol);
+          const stock = stocks.find((s: any) => s.symbol === symbol);
           if (stock) {
             ltp = stock.closePrice || stock.lastTradedPrice || 0;
-            prevClose = stock.previousDayClosePrice || 0;
+            const prevClose = stock.previousDayClosePrice || 0;
             open = stock.openPrice || 0;
             high = stock.highPrice || 0;
             low = stock.lowPrice || 0;
             volume = stock.totalTradeQuantity || stock.volume || 0;
             pointChange = ltp - prevClose;
             percentChange = prevClose ? (pointChange / prevClose) * 100 : 0;
+            foundLive = true;
           }
         }
       } catch (e) {
         // Fallback below
       }
 
-      // 2. Try the existing proxy fallback
-      if (!stock) {
-        const fbRes = await fetch(`https://nepsetty.kokomo.workers.dev/api/stock?symbol=${symbol}`);
-        if (!fbRes.ok) throw new Error("Fallback API down");
-        const fbData = await fbRes.json();
+      // 2. Try the existing proxy fallback for LTP
+      if (!foundLive) {
+        try {
+          const fbRes = await fetch(`https://nepsetty.kokomo.workers.dev/api/stock?symbol=${symbol}`);
+          if (fbRes.ok) {
+            const fbData = await fbRes.json();
+            if (fbData.ltp) {
+              ltp = parseFloat(fbData.ltp);
+              foundLive = true;
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 3. Smart Merge: Fill missing fields from our own database (most recent record)
+      try {
+        const dbRes = await pool.query(
+          `SELECT price, volume FROM daily_prices WHERE symbol = $1 ORDER BY date_str DESC LIMIT 2`,
+          [symbol]
+        );
         
-        if (!fbData.symbol || !fbData.ltp) {
-          return res.status(404).json({ error: "Invalid scrip symbol" });
+        if (dbRes.rows.length > 0) {
+          const latest = dbRes.rows[0];
+          const previous = dbRes.rows[1];
+
+          // If live LTP is missing, use DB price
+          if (ltp === 0) ltp = parseFloat(latest.price);
+          
+          // Fill gaps (Open/High/Low are often similar to current or latest close in fast lookups)
+          if (open === 0) open = parseFloat(latest.price);
+          if (high === 0) high = parseFloat(latest.price);
+          if (low === 0) low = parseFloat(latest.price);
+          if (volume === 0) volume = parseFloat(latest.volume);
+
+          // Calculate change if missing
+          if (pointChange === 0 && previous) {
+            pointChange = ltp - parseFloat(previous.price);
+            percentChange = (pointChange / parseFloat(previous.price)) * 100;
+          }
         }
-        
-        ltp = parseFloat(fbData.ltp);
-        pointChange = parseFloat(fbData.pointChange || "0");
-        percentChange = parseFloat(fbData.percentChange || "0");
-        open = parseFloat(fbData.open || "0");
-        high = parseFloat(fbData.high || "0");
-        low = parseFloat(fbData.low || "0");
-        volume = parseFloat(fbData.volume || "0");
+      } catch (dbErr) {
+        console.error("DB stats fallback failed:", dbErr);
+      }
+
+      if (ltp === 0 && !foundLive) {
+        return res.status(404).json({ error: "Invalid scrip symbol or data unavailable" });
       }
 
       res.json({ symbol, ltp, pointChange, percentChange, open, high, low, volume });
