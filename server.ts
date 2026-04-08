@@ -142,9 +142,10 @@ async function seedHistoricalData() {
   console.log("Historical data seeding complete.");
 }
 
-initDB();
-
 async function startServer() {
+  // Ensure DB is initialized before starting the server
+  await initDB();
+
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
