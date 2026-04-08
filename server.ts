@@ -169,11 +169,22 @@ async function startServer() {
       const latest = dbRes.rows[0];
       const previous = dbRes.rows[1];
 
+      // Calculate 52-week high and low from database
+      const statsRes = await pool.query(
+        `SELECT MAX(price) as high52, MIN(price) as low52 
+         FROM daily_prices 
+         WHERE symbol = $1 
+         AND TO_DATE(date_str, 'YYYY-MM-DD') >= CURRENT_DATE - INTERVAL '1 year'`,
+        [symbol]
+      );
+      
+      const high52 = parseFloat(statsRes.rows[0].high52 || latest.price);
+      const low52 = parseFloat(statsRes.rows[0].low52 || latest.price);
+
       const ltp = parseFloat(latest.price);
       const volume = parseFloat(latest.volume || 0);
       
       // Since it's EOD data from DB, we'll use LTP as High/Low/Open for the terminal card 
-      // or just show the actual LTP if specific OHLC isn't stored.
       const open = ltp; 
       const high = ltp;
       const low = ltp;
@@ -196,6 +207,8 @@ async function startServer() {
         high, 
         low, 
         volume,
+        high52,
+        low52,
         isDatabaseData: true 
       });
     } catch (error) {

@@ -129,12 +129,12 @@ export function MarketTerminal() {
               </div>
 
               {/* Metrics Grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
                   { label: 'Open', value: data.open, icon: Activity, color: 'text-blue-500', bg: 'bg-blue-50' },
-                  { label: 'High', value: data.high, icon: Maximize2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-                  { label: 'Low', value: data.low, icon: Minimize2, color: 'text-rose-500', bg: 'bg-rose-50' },
                   { label: 'Total Volume', value: data.volume, icon: BarChart3, color: 'text-amber-500', bg: 'bg-amber-50' },
+                  { label: '52W High', value: data.high52, icon: Maximize2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                  { label: '52W Low', value: data.low52, icon: Minimize2, color: 'text-rose-500', bg: 'bg-rose-50' },
                 ].map((stat, idx) => (
                   <motion.div 
                     key={stat.label}
