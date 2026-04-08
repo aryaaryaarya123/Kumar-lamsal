@@ -148,94 +148,58 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-  // API Route to fetch a single stock for the Market Terminal
+  // API Route to fetch a single stock for the Market Terminal (Database Only)
   app.get("/api/stock/:symbol", async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
     try {
-      let ltp = 0, pointChange = 0, percentChange = 0, open = 0, high = 0, low = 0, volume = 0;
-      let foundLive = false;
-
-      // 1. Try NEPSE directly with optimized headers
-      try {
-        const response = await fetch('https://newweb.nepalstock.com/api/nots/nepse-data/today-price?&size=500', {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://newweb.nepalstock.com/',
-            'Accept': 'application/json, text/plain, */*',
-            'Host': 'newweb.nepalstock.com'
-          }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const stocks = Array.isArray(data) ? data : (data.content || []);
-          const stock = stocks.find((s: any) => s.symbol === symbol);
-          if (stock) {
-            ltp = stock.closePrice || stock.lastTradedPrice || 0;
-            const prevClose = stock.previousDayClosePrice || 0;
-            open = stock.openPrice || 0;
-            high = stock.highPrice || 0;
-            low = stock.lowPrice || 0;
-            volume = stock.totalTradeQuantity || stock.volume || 0;
-            pointChange = ltp - prevClose;
-            percentChange = prevClose ? (pointChange / prevClose) * 100 : 0;
-            foundLive = true;
-          }
-        }
-      } catch (e) {
-        // Fallback below
+      // Fetch the two most recent records to calculate change
+      const dbRes = await pool.query(
+        `SELECT price, volume FROM daily_prices 
+         WHERE symbol = $1 
+         ORDER BY date_str DESC 
+         LIMIT 2`,
+        [symbol]
+      );
+      
+      if (dbRes.rows.length === 0) {
+        return res.status(404).json({ error: "Scrip symbol not found in database." });
       }
 
-      // 2. Try the existing proxy fallback for LTP
-      if (!foundLive) {
-        try {
-          const fbRes = await fetch(`https://nepsetty.kokomo.workers.dev/api/stock?symbol=${symbol}`);
-          if (fbRes.ok) {
-            const fbData = await fbRes.json();
-            if (fbData.ltp) {
-              ltp = parseFloat(fbData.ltp);
-              foundLive = true;
-            }
-          }
-        } catch (e) {}
+      const latest = dbRes.rows[0];
+      const previous = dbRes.rows[1];
+
+      const ltp = parseFloat(latest.price);
+      const volume = parseFloat(latest.volume || 0);
+      
+      // Since it's EOD data from DB, we'll use LTP as High/Low/Open for the terminal card 
+      // or just show the actual LTP if specific OHLC isn't stored.
+      const open = ltp; 
+      const high = ltp;
+      const low = ltp;
+
+      let pointChange = 0;
+      let percentChange = 0;
+
+      if (previous) {
+        const prevPrice = parseFloat(previous.price);
+        pointChange = ltp - prevPrice;
+        percentChange = (pointChange / prevPrice) * 100;
       }
 
-      // 3. Smart Merge: Fill missing fields from our own database (most recent record)
-      try {
-        const dbRes = await pool.query(
-          `SELECT price, volume FROM daily_prices WHERE symbol = $1 ORDER BY date_str DESC LIMIT 2`,
-          [symbol]
-        );
-        
-        if (dbRes.rows.length > 0) {
-          const latest = dbRes.rows[0];
-          const previous = dbRes.rows[1];
-
-          // If live LTP is missing, use DB price
-          if (ltp === 0) ltp = parseFloat(latest.price);
-          
-          // Fill gaps (Open/High/Low are often similar to current or latest close in fast lookups)
-          if (open === 0) open = parseFloat(latest.price);
-          if (high === 0) high = parseFloat(latest.price);
-          if (low === 0) low = parseFloat(latest.price);
-          if (volume === 0) volume = parseFloat(latest.volume);
-
-          // Calculate change if missing
-          if (pointChange === 0 && previous) {
-            pointChange = ltp - parseFloat(previous.price);
-            percentChange = (pointChange / parseFloat(previous.price)) * 100;
-          }
-        }
-      } catch (dbErr) {
-        console.error("DB stats fallback failed:", dbErr);
-      }
-
-      if (ltp === 0 && !foundLive) {
-        return res.status(404).json({ error: "Invalid scrip symbol or data unavailable" });
-      }
-
-      res.json({ symbol, ltp, pointChange, percentChange, open, high, low, volume });
+      res.json({ 
+        symbol, 
+        ltp, 
+        pointChange, 
+        percentChange, 
+        open, 
+        high, 
+        low, 
+        volume,
+        isDatabaseData: true 
+      });
     } catch (error) {
-      res.status(502).json({ error: "Data currently unavailable from NEPSE." });
+      console.error("Terminal DB fetch failed:", error);
+      res.status(500).json({ error: "Internal database error." });
     }
   });
 
